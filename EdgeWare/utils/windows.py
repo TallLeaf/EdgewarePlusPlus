@@ -18,6 +18,10 @@ def set_borderless(root):
     root.overrideredirect(1)
 
 
+def set_vlc_window(media_player, window_id):
+    media_player.set_hwnd(window_id)
+
+
 def set_wallpaper(wallpaper_path: Path | str):
     if isinstance(wallpaper_path, Path):
         wallpaper_path = str(wallpaper_path.absolute())

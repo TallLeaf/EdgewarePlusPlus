@@ -21,6 +21,10 @@ def set_borderless(root):
     root.wm_attributes("-type", "splash")
 
 
+def set_vlc_window(media_player, window_id):
+    media_player.set_xwindow(window_id)
+
+
 def set_wallpaper(wallpaper_path: Path | str):
     global first_run
     if not 'first_run' in globals():

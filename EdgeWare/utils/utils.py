@@ -1,6 +1,6 @@
 import logging
 import os
-import sys
+import platform
 import time
 
 from utils.paths import LOG_PATH
@@ -20,16 +20,22 @@ def init_logging(filename, source=None):
 
 
 def is_linux():
-    return "linux" in sys.platform
+    return platform.system() == "Linux"
 
 
 def is_windows():
-    return "win32" in sys.platform
+    return platform.system() == "Windows"
+
+
+def is_mac():
+    return platform.system() == "Darwin"
 
 
 if is_linux():
     from .linux import *
 elif is_windows():
     from .windows import *
+elif is_mac():
+    from .mac import *
 else:
-    raise RuntimeError("Unsupported operating system: {}".format(sys.platform))
+    raise RuntimeError("Unsupported operating system: {}".format(platform.system()))
