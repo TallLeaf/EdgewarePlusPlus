@@ -15,6 +15,7 @@ from pathlib import Path
 from tkinter import messagebox
 
 import playsound as ps
+from subprocesses.startup_flair import make_startup_flair
 from utils import utils
 from utils.booru import BooruDownloader, download_web_resources
 from utils.fill import LIVE_FILL_THREADS, fill_drive, replace_images
@@ -225,18 +226,7 @@ if settings.DESKTOP_ICONS:
 
 if settings.LOADING_FLAIR and (__name__ == "__main__"):
     logging.info("started loading flair")
-    if Resource.SPLASH:
-        if settings.LANCZOS_MODE:
-            logging.info("using lanczos for loading flair")
-            subprocess.run([sys.executable, Process.STARTUP, "-custom", "-lanczos"])
-        else:
-            subprocess.run([sys.executable, Process.STARTUP, "-custom"])
-    else:
-        if settings.LANCZOS_MODE:
-            logging.info("using lanczos for loading flair")
-            subprocess.run([sys.executable, Process.STARTUP, "-lanczos"])
-        else:
-            subprocess.run([sys.executable, Process.STARTUP])
+    make_startup_flair(settings)
 
 
 # checks if user is in corruption mode, then sets wallpaper accordingly

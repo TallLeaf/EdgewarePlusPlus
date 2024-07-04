@@ -16,7 +16,6 @@ class Process:
     DISCORD = PATH / "subprocesses" / "discord_handler.pyw"
     POPUP = PATH / "subprocesses" / "popup.pyw"
     PROMPT = PATH / "subprocesses" / "prompt.pyw"
-    STARTUP = PATH / "subprocesses" / "startup_flair.pyw"
     SUBLABEL = PATH / "subprocesses" / "sublabel.pyw"
 
 
