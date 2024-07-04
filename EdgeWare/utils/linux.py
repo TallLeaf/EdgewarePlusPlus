@@ -4,17 +4,17 @@ import logging
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 from configparser import ConfigParser
 from pathlib import Path
-import shutil
 
 from utils.paths import Defaults, Process
 
 
 def panic_script():
-    subprocess.run("pkill -u $USER -fi -9 \"python.* *+.pyw\"", shell=True)
+    subprocess.run('pkill -u $USER -fi -9 "python.* *+.pyw"', shell=True)
 
 
 def set_borderless(root):
@@ -27,7 +27,7 @@ def set_vlc_window(media_player, window_id):
 
 def set_wallpaper(wallpaper_path: Path | str):
     global first_run
-    if not 'first_run' in globals():
+    if "first_run" not in globals():
         first_run = True
     if isinstance(wallpaper_path, Path):
         wallpaper_path = str(wallpaper_path.absolute())
@@ -184,7 +184,7 @@ def set_wallpaper(wallpaper_path: Path | str):
             args = "wmsetbg -s -u %s" % wallpaper_path
             subprocess.Popen(args, shell=True)
         elif desktop_env in ["i3", "awesome", "dwm", "xmonad", "bspwm"]:
-            _wm_set_background(wallpaper_path)        
+            _wm_set_background(wallpaper_path)
         elif desktop_env == "hyprland":
             if not shutil.which("hyprctl"):
                 if first_run:
@@ -197,12 +197,12 @@ def set_wallpaper(wallpaper_path: Path | str):
                     if re.search(wallpaper_path, line.decode().strip()):
                         preloaded = True
             if not preloaded:
-                args1 = "hyprctl hyprpaper preload \"%s\"" % wallpaper_path
+                args1 = 'hyprctl hyprpaper preload "%s"' % wallpaper_path
                 subprocess.Popen(args1, shell=True)
-            args2 = "hyprctl hyprpaper wallpaper \",%s\"" % wallpaper_path
+            args2 = 'hyprctl hyprpaper wallpaper ",%s"' % wallpaper_path
             subprocess.Popen(args2, shell=True)
         elif desktop_env == "sway":
-            args = "swaybg -o \"*\" -i %s -m fill" % wallpaper_path
+            args = 'swaybg -o "*" -i %s -m fill' % wallpaper_path
             subprocess.Popen(args, shell=True)
         ## NOT TESTED BELOW - don't want to mess things up ##
         # elif desktop_env=='enlightenment': # I have not been able to make it work on e17. On e16 it would have been something in this direction
@@ -361,7 +361,7 @@ def _get_desktop_environment():
             "dwm",
             "xmonad",
             "bspwm",
-            "sway"
+            "sway",
         ]:
             return desktop_session
         ## Special cases ##
@@ -395,6 +395,7 @@ def _get_desktop_environment():
         return "kde"
     return "unknown"
 
+
 def _wm_set_background(wallpaper_path: Path | str):
     ## window manager set background
     # awesome window manager has a nice wrapper script to set the background using many different programs
@@ -410,18 +411,18 @@ def _wm_set_background(wallpaper_path: Path | str):
             "nitrogen",
             "feh",
             "habak",  # not tested
-            "hsetroot", # not tested
-            "chbg", # not tested
-            "qiv", # not tested
-            "xv", # not tested
-            "xsri", # not tested
-            "xli", # not tested
-            "xsetbg", # not tested
-            "fvwm-root", # not tested
-            "wmsetbg", # not tested
-            "Esetroot", # not tested
-            "display", # not tested
-            #"xsetroot", # only solid colors
+            "hsetroot",  # not tested
+            "chbg",  # not tested
+            "qiv",  # not tested
+            "xv",  # not tested
+            "xsri",  # not tested
+            "xli",  # not tested
+            "xsetbg",  # not tested
+            "fvwm-root",  # not tested
+            "wmsetbg",  # not tested
+            "Esetroot",  # not tested
+            "display",  # not tested
+            # "xsetroot", # only solid colors
         ]
     # may not need this actually
     elif session == "wayland":
@@ -503,7 +504,7 @@ def _wm_set_background(wallpaper_path: Path | str):
                     args = "display -sample `xwininfo -root 2> /dev/null|awk '/geom/{print $2}'` -window root"
                     break
                 case _:
-                    sys.stderr.write("Tell the developer they \"forgot to add a case for %s\"" % setter)
+                    sys.stderr.write('Tell the developer they "forgot to add a case for %s"' % setter)
                     return
     if not args:
         if first_run:

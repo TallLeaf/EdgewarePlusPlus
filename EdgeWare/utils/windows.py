@@ -97,12 +97,12 @@ def toggle_run_at_startup(state: bool):
     try:
         startup_path = Path(os.path.expanduser("~\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"))
         if state:
-            logging.info(f"trying to toggle startup bat to true")
+            logging.info("trying to toggle startup bat to true")
             make_shortcut("Edgeware", Process.START, Defaults.ICON, startup_path)
             logging.info("toggled startup run on.")
         else:
             if os.path.exists(startup_path / "edgeware.lnk"):
-                logging.info(f"trying to toggle startup bat to false")
+                logging.info("trying to toggle startup bat to false")
                 os.remove(startup_path / "edgeware.lnk")
                 logging.info("toggled startup run off.")
     except Exception as e:

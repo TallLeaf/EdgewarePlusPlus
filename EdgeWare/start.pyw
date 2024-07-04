@@ -274,7 +274,9 @@ def url_select(arg: int):
     logging.info(f"selected url {arg}")
     return WEB_DICT["urls"][arg] + WEB_DICT["args"][arg].split(",")[rand.randrange(len(WEB_DICT["args"][arg].split(",")))]
 
+
 START_TIME = time.monotonic()
+
 
 # main function, probably can do more with this but oh well i'm an idiot so
 def main():
@@ -501,14 +503,14 @@ def annoyance():
         if settings.CORRUPTION_TRIGGER == "Launch":
             corr_chance = corruption_percent()
             if corr_chance > 1.0:
-                #remove leading digit if corruption level isn't maxxed
-                #this only happens for launches because launches don't reset to 0 when corruption levels up
+                # remove leading digit if corruption level isn't maxxed
+                # this only happens for launches because launches don't reset to 0 when corruption levels up
                 if settings.CORRUPTION_PURITY and tracked_level != 1:
                     corr_chance = corr_chance % 1
                 elif not settings.CORRUPTION_PURITY and tracked_level != len(corruption_data["moods"].keys()):
                     corr_chance = corr_chance % 1
                 else:
-                    #if it's maxxed, just keep it at 1
+                    # if it's maxxed, just keep it at 1
                     corr_chance = 1
     while True:
         if settings.CORRUPTION_MODE:
@@ -537,7 +539,7 @@ def roll_for_initiative(corr_chance: float):
         corr_chance = corruption_percent()
         if corr_chance > 1.0:
             corr_chance = 1
-    #print(f"corruption chance: {corr_chance}")
+    # print(f"corruption chance: {corr_chance}")
     if settings.HIBERNATE_TYPE == "Pump-Scare" and settings.HIBERNATE_MODE:
         if HAS_IMAGES:
             if HAS_AUDIO:
@@ -890,6 +892,7 @@ def corruption_timer(total_levels: int):
                 f.truncate()
                 print(f"corruption now at level {corruption_level-1}")
 
+
 def corruption_percent():
     if settings.CORRUPTION_TRIGGER == "Timed":
         with open(Data.CORRUPTION_LEVEL, "r") as f:
@@ -898,7 +901,7 @@ def corruption_percent():
             corruption_completed_time = (len(corruption_data["moods"].keys()) - corruption_level) * settings.CORRUPTION_TIME
         else:
             corruption_completed_time = (corruption_level - 1) * settings.CORRUPTION_TIME
-        #remove already elapsed time before dividing
+        # remove already elapsed time before dividing
         corruption_chance = (time.monotonic() - (START_TIME + corruption_completed_time)) / settings.CORRUPTION_TIME
     if settings.CORRUPTION_TRIGGER == "Popup":
         with open(Data.CORRUPTION_POPUPS, "r") as f:
@@ -908,6 +911,7 @@ def corruption_percent():
             curr_launches = int(f.read())
         corruption_chance = curr_launches / settings.CORRUPTION_LAUNCHES
     return corruption_chance
+
 
 if __name__ == "__main__":
     main()
