@@ -135,6 +135,8 @@ CORRUPTION_THEMECYCLE = int(settings['corruptionThemeCycle']) == 1
 CORRUPTION_PURITY = int(settings['corruptionPurityMode']) == 1
 CORRUPTION_FULL = int(settings['corruptionFullPerm']) == 1
 
+PAGESTART = 0
+
 MOOD_ID = '0'
 if not MOOD_OFF:
     try:
@@ -286,11 +288,20 @@ if SHOW_ON_DISCORD:
 #making missing desktop shortcuts
 if DESKTOP_ICONS:
     if not utils.does_desktop_shortcut_exist('Edgeware'):
-        utils.make_shortcut('Edgeware', Process.START, Defaults.ICON)
+        if os.path.isfile(Resource.START):
+            utils.make_shortcut('Edgeware', Process.START, Resource.START)
+        else:
+            utils.make_shortcut('Edgeware', Process.START, Defaults.ICON)
     if not utils.does_desktop_shortcut_exist('Config'):
-        utils.make_shortcut('Config', Process.CONFIG, Defaults.CONFIG_ICON)
+        if os.path.isfile(Resource.CONFIG):
+            utils.make_shortcut('Config', Process.CONFIG, Resource.CONFIG)
+        else:
+            utils.make_shortcut('Config', Process.CONFIG, Defaults.CONFIG_ICON)
     if not utils.does_desktop_shortcut_exist('Panic'):
-        utils.make_shortcut('Panic', Process.PANIC, Defaults.PANIC_ICON)
+        if os.path.isfile(Resource.PANIC):
+            utils.make_shortcut('Panic', Process.PANIC, Resource.PANIC)
+        else:
+            utils.make_shortcut('Panic', Process.PANIC, Defaults.PANIC_ICON)
 
 if LOADING_FLAIR and (__name__ == "__main__"):
     logging.info('started loading flair')
@@ -603,15 +614,57 @@ class BooruDownloader:
         self.page_count     = 0
         self.booru_scheme   = BooruScheme(self.booru) if self.booru not in self.exception_list.keys() else self.exception_list.get(self.booru)
         self.max_page       = int(self.get_page_count())
+        self.finalNum       = 20
+        self.numDownloads   = 0
+    def imgs_on_end(self,min_score:int = None):
+        num = 0
+        self._page_url = f'{self.booru_scheme.booru_search_url.format(booru_name=self.booru)}{self.tags}&pid={(self.max_page-1)*self.post_per_page}'
+        self._html = requests.get(self._page_url).text
+        self._soup = BeautifulSoup(self._html, 'html.parser')
+        for image in self._soup.find_all('img'):
+            try:
+                self._src:str     = image.get('src')
+                self._code_actual = int(self.pick_value(self._src,
+                                                    f'{self.booru_scheme.preview_thumb_id_start}',
+                                                    f'{self.booru_scheme.preview_thumb_id_end}'))
+                self._file_name   = self.pick_value(self._src,
+                                                f'{self.booru_scheme.preview_thumb_name_start}',
+                                                f'{self.booru_scheme.preview_thumb_name_end}')
 
-    def download(self, page_start:int = 0, page_end:int = 1, min_score:int = None) -> None:
-        imgnum = 0
+                self._title:str = image.get('title')
+                self._start     = int(self._title.index(f'{self.booru_scheme.score_start}') + len(self.booru_scheme.score_start))
+                self._end       = self._title.index(f'{self.booru_scheme.score_end}', self._start)
+                self._score     = int(self._title[self._start:self._end])
+
+                if min_score is not None and self._score < min_score:
+                    print(f'(score {self._score} too low) skipped {self._src}')
+                    continue
+            except Exception as e:
+                print(f'skipped: {e}')
+                continue
+            for extension in self.extension_list:
+                try:
+                    self._file_name_full = f'{self._file_name}.{extension}'
+                    self._full_url = f'{self.booru_scheme.raw_image_url.format(booru=self.booru, code_actual=self._code_actual)}{self._file_name_full}'
+                    num += 1
+
+                    break
+                except:
+                    continue
+        return num-1
+    
+    def download(self, page_start:int = 0, page_end:int = -1, min_score:int = None) -> None:
+        if page_end == -1:
+            page_end = self.max_page
         self._page_start = max(page_start, 0)
-        self._page_start = min(self._page_start, self.page_count)
+        self._page_start = min(self._page_start, self.max_page)
+        imgnum = 0
+        startnum = self.imgs_on_end(min_score=int(settings.get('booruMinScore')))
         self._page_end   = min(page_end, self.max_page+1) if page_end >= self._page_start else self._page_start + 1
-
+        
         for page_index in range(self._page_start, self._page_end):
-            self._page_url = f'{self.booru_scheme.booru_search_url.format(booru_name=self.booru)}{self.tags}&pid={page_index*self.post_per_page}'
+            imgnum = startnum + ((page_index-1)*20)
+            self._page_url = f'{self.booru_scheme.booru_search_url.format(booru_name=self.booru)}{self.tags}&pid={(page_end-page_index)*self.post_per_page}'
             logging.info(f'downloadpageurl={self._page_url}')
             self._html = requests.get(self._page_url).text
             self._soup = BeautifulSoup(self._html, 'html.parser')
@@ -643,7 +696,8 @@ class BooruDownloader:
                         self._file_name_full = f'{self._file_name}.{extension}'
                         self._full_url = f'{self.booru_scheme.raw_image_url.format(booru=self.booru, code_actual=self._code_actual)}{self._file_name_full}'
                         self.direct_download(self._full_url, imgnum)
-                        imgnum += 1
+                        imgnum -= 1
+                        self.numDownloads += 1
                         break
                     except:
                         continue
@@ -653,18 +707,19 @@ class BooruDownloader:
         self.download(self._selected_page, min_score=min_score)
 
     def download_all(self, min_score:int=None) -> None:
-        for page in range(0, self.max_page):
+        for page in range(PAGESTART, self.max_page):
             self.download(page, min_score=min_score)
 
-    def direct_download(self, url:str,imgnum:int) -> None:
+    def direct_download(self, url:str,num:int) -> None:
         r = requests.get(url)
         if r.status_code == 404:
             raise Exception("Response 404")
         img_data = r.content
         extension = url.split('.')[-1]
-        logging.info('image'+str(imgnum)+'.'+extension)
-        with open('resource/img/booruimage'+str(imgnum)+'.'+extension, 'wb') as handler:
+        with open('resource/img/booruimage'+str(num)+'.'+extension, 'wb') as handler:
             handler.write(img_data)
+        with open('resource/img/numberdownloaded.txt', 'w') as handler:
+                handler.write(str(self.numDownloads))
 
     def get_page_count(self) -> int:
         self._href_core = self.booru_scheme.booru_search_url.format(booru_name=self.booru).split('?')[0]
@@ -720,7 +775,7 @@ def annoyance():
     global MITOSIS_LIVE
     while(True):
         roll_for_initiative()
-        if not MITOSIS_LIVE and (MITOSIS_MODE or LOWKEY_MODE) and HAS_IMAGES:
+        if not MITOSIS_LIVE and (MITOSIS_MODE) and HAS_IMAGES: #or LOWKEY_MODE) and HAS_IMAGES:
             subprocess.Popen([sys.executable, Process.POPUP]) if MOOD_OFF else subprocess.Popen([sys.executable, Process.POPUP, f'-{MOOD_ID}'])
             MITOSIS_LIVE = True
         if FILL_MODE and LIVE_FILL_THREADS < MAX_FILL_THREADS:
@@ -826,7 +881,8 @@ def roll_for_initiative():
             except Exception as e:
                 messagebox.showerror('Prompt Error', 'Could not start prompt.\n[' + str(e) + ']')
                 logging.critical(f'failed to start prompt.pyw\n\tReason: {e}')
-        if (not (MITOSIS_MODE or LOWKEY_MODE)) and do_roll(POPUP_CHANCE) and HAS_IMAGES and currPopNum < maxPopNum:
+        if (not (MITOSIS_MODE)) and do_roll(POPUP_CHANCE) and HAS_IMAGES and currPopNum < maxPopNum:
+                 #or LOWKEY_MODE)) and do_roll(POPUP_CHANCE) and HAS_IMAGES and currPopNum < maxPopNum:
             try:
                 subprocess.Popen([sys.executable, Process.POPUP]) if MOOD_OFF else subprocess.Popen([sys.executable, Process.POPUP, f'-{MOOD_ID}'])
                 currPopNum += 1

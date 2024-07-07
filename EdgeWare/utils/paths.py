@@ -33,6 +33,9 @@ class Resource:
     CONFIG = ROOT / 'config.json'
     CORRUPTION = ROOT / 'corruption.json'
     DISCORD = ROOT / 'discord.dat'
+    START = ROOT / 'start.ico'
+    CONFIG = ROOT / 'config.ico'
+    PANIC = ROOT / 'panic.ico'
     ICON = ROOT / 'icon.ico'
     INFO = ROOT / 'info.json'
     SPLASH = None

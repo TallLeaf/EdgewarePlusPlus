@@ -117,6 +117,8 @@ with open(Data.CONFIG, 'r') as cfg:
     DELAY = int(settings['delay'])
     OPACITY = int(settings['lkScaling'])
     VIDEO_VOLUME = float(settings['videoVolume']) / 100
+    
+    VIDEO_LOOP = False # For the sake of arguement, let's say it's a toggle
 
     VIDEO_VOLUME = min(max(0, VIDEO_VOLUME), 1)
 
@@ -205,7 +207,7 @@ try:
     with open(Resource.CAPTIONS, 'r') as caption_file:
         CAPTIONS = json.load(caption_file)
         try:
-            SUBMISSION_TEXT = CAPTIONS['subtext']
+            SUBMISSION_TEXT = rand.choice(CAPTIONS['subtext'])
         except:
             print('will use default submission text')
         prefixes['default'] = prefix_data('default', images='', max=1, chance=100.0)
@@ -316,6 +318,24 @@ class VideoLabel(tk.Label):
                 time.sleep(max(0, self.delay - (self.time_offset_end - self.time_offset_start)))
 
 #moving window originally provided very generously by u/basicmo!
+
+    def play_no_loop(self):
+        from types import NoneType
+        if not isinstance(self.audio_track, NoneType):
+            try:
+                import sounddevice
+                sounddevice.play(self.audio_track, samplerate=len(self.audio_track) / self.duration, loop=True)
+            except Exception as e:
+                print(f'failed to play sound, reason:\n\t{e}')
+        
+        for frame in self.video_frames.iter_data():
+            self.time_offset_start = time.perf_counter()
+            self.video_frame_image = ImageTk.PhotoImage(Image.fromarray(frame).resize((self.wid, self.hgt)))
+            self.config(image=self.video_frame_image)
+            self.image = self.video_frame_image
+            self.time_offset_end = time.perf_counter()
+            time.sleep(max(0, self.delay - (self.time_offset_end - self.time_offset_start)))
+        die()
 mspd = rand.randint(-MOVING_SPEED,MOVING_SPEED)
 while mspd == 0:
     mspd = rand.randint(-MOVING_SPEED,MOVING_SPEED)
@@ -490,8 +510,11 @@ def run():
     #many thanks to @MercyNudes for fixing my old braindead scaling method (https://twitter.com/MercyNudes)
     def resize(img:Image.Image) -> Image.Image:
         size_source = max(img.width, img.height) / min(monitor.width, monitor.height)
-        size_target = rand.randint(30, 70) / 100 if not LOWKEY_MODE else rand.randint(20, 50) / 100
+        size_target = rand.randint(30, 70) / 100 if not (LOWKEY_MODE or video_mode) else rand.randint(20, 50) / 100
         resize_factor = size_target / size_source
+        if video_mode == True: 
+            #resize_factor = max(resize_factor,40)
+            resize_factor = resize_factor*1.45
         if LANCZOS_MODE:
             return image.resize((int(image.width * resize_factor), int(image.height * resize_factor)), Image.LANCZOS)
         else:
@@ -514,17 +537,41 @@ def run():
 
     #different handling for videos vs gifs vs normal images
     if video_mode:
+        duration = 0
         if len(SYS_ARGS) >= 2 and SYS_ARGS[1] == '-vlc':
             #vlc mode
             label = Label(root, width=resized_image.width, height=resized_image.height)
             label.pack()
-            startVLC(video_path, label)
+            if VIDEO_LOOP:
+                startVLC(video_path, label) # if it loops, we do whatever is normal
+            else:
+                from videoprops import get_video_properties # placement is only for the PR
+                # the only tested file types are .mov, .mp4, and webm. I haven't encountered other file types in the packs I have so...
+                try:
+                    duration = float(get_video_properties(video_path)['duration']) # for .mov and .mp4
+                except:
+                        #for webm, we get a HH:MM:SS.MS format. It seems having two significant digits will suffice for the MS, and there's a bit of conversion to do
+                    try:
+                        time_str = get_video_properties(video_path)['tags']['DURATION']
+                        time_str = time_str[0:10] #  HH:MM:SS.MS
+                        temp = time.strptime(time_str, "%H:%M:%S.%f")
+                        duration = temp.hour * 3600 + temp.minute * 60 + temp.second + temp.microsecond / 1e6
+                    except:
+                        print(get_video_properties(video_path)) # show the JSON
+                        #the file is a .wmv, or some other cryptic type, maybe this should be an exposed fallback amount
+                        duration = 30 # from what I've seen most clips are less or more, making this the frustrating center
+                startVLC_no_loop(video_path, label, duration)
         else:
             #video mode
+            root.attributes('-topmost',True)
             label = VideoLabel(root)
             label.load(path = video_path, resized_width = resized_image.width, resized_height = resized_image.height)
             label.pack()
-            thread.Thread(target=lambda: label.play(), daemon=True).start()
+            if VIDEO_LOOP:
+                thread.Thread(target=lambda: label.play(), daemon=True).start()
+            else:
+                thread.Thread(target=lambda: label.play_no_loop(), daemon=True).start()
+        duration = duration+5
     elif animated_gif:
         #gif mode
         label = GifLabel(root)
@@ -583,6 +630,15 @@ def run():
         elif LOWKEY_CORNER == 3:
             locX = monitor.x + monitor.width - (resized_image.width)
             locY = monitor.y + monitor.height - (resized_image.height)
+    else:
+        if locX + resized_image.width > monitor.width:
+            locX = monitor.width - (resized_image.width)
+        if locX < monitor.x:
+            locX = monitor.x
+        if locY + resized_image.height > monitor.height:
+            locY = monitor.height - (resized_image.height)
+        if locY < monitor.y:
+            locY = monitor.y
 
     root.geometry(f'{resized_image.width + border_wid_const - 1}x{resized_image.height + border_wid_const - 1}+{locX}+{locY}')
 
@@ -590,8 +646,8 @@ def run():
         label.next_frame()
 
     if HAS_LIFESPAN or LOWKEY_MODE and not (HIBERNATE_TYPE == 'Pump-Scare' and HIBERNATE_MODE):
-        thread.Thread(target=lambda: live_life(root, LIFESPAN if not LOWKEY_MODE else DELAY / 1000), daemon=True).start()
-
+        thread.Thread(target=lambda: live_life(root, duration if video_mode else (LIFESPAN )), daemon=True).start()
+    #if not LOWKEY_MODE else DELAY / 1000)), daemon=True).start()
     if not MULTI_CLICK:
         root.click_count = 1
 
@@ -627,8 +683,10 @@ def run():
             f.seek(0)
             f.write(str(i+1))
             f.truncate()
-
-    root.attributes('-alpha', OPACITY / 100)
+    if video_mode:
+        root.attributes('-alpha', min(OPACITY+20,100) / 100)
+    else:
+        root.attributes('-alpha', OPACITY / 100)
 
     if MOVING_STATUS:
         move_window(root,resized_image.height,resized_image.width,locX,locY)
@@ -648,6 +706,26 @@ def startVLC(vid, label):
     media = instance.media_new(vid)
     media_player.set_media(media)
     media_player.play()
+def startVLC_no_loop(vid, label, duration):
+    import threading
+
+    instance = vlc.Instance('--input-repeat=1') # if there's delay, the video will loop once. This should only be necessary in really bad cases
+    media_player = instance.media_player_new()
+    media_player.set_hwnd(label.winfo_id())
+    media_player.video_set_mouse_input(False)
+    media_player.video_set_key_input(False)
+    media_player.audio_set_volume(int(VIDEO_VOLUME*100))
+
+    media = instance.media_new(vid)
+    media_player.set_media(media)
+    media_player.play()
+    t = threading.Timer(duration, die) #kill after duration
+    t.start()
+    stay_on_top();
+
+def stay_on_top():
+    root.lift()
+    root.after(200, stay_on_top)
 
 def check_deny() -> bool:
     return DENIAL_MODE and rand.randint(1, 100) <= DENIAL_CHANCE
@@ -667,8 +745,8 @@ def live_life(parent:tk, length:int):
     for i in range(100-OPACITY, 100):
         parent.attributes('-alpha', 1-i/100)
         time.sleep(FADE_OUT_TIME / 100)
-    if LOWKEY_MODE:
-        subprocess.Popen([sys.executable, Process.POPUP])
+    #if LOWKEY_MODE:
+        #subprocess.Popen([sys.executable, Process.POPUP])
     if HIBERNATE_MODE and check_setting('fixWallpaper'):
         with open(Data.HIBERNATE, 'r+') as f:
             i = int(f.readline())
@@ -742,8 +820,8 @@ def die():
     if WEB_OPEN and web_dict and do_roll((100-WEB_PROB) / 2) and not LOWKEY_MODE:
         urlPath = select_url(rand.randrange(len(web_dict['urls'])))
         webbrowser.open_new(urlPath)
-    if MITOSIS_MODE or LOWKEY_MODE:
-        for i in (range(0, MITOSIS_STRENGTH) if not LOWKEY_MODE else [1]):
+    if MITOSIS_MODE:# or LOWKEY_MODE:
+        for i in (range(0, MITOSIS_STRENGTH)): #if not LOWKEY_MODE else [1]):
             subprocess.Popen([sys.executable, Process.POPUP])
     if HIBERNATE_MODE and check_setting('fixWallpaper'):
         with open(Data.HIBERNATE, 'r+') as f:
