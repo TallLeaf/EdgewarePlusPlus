@@ -498,25 +498,25 @@ def annoyance():
                 else:
                     # if it's maxxed, just keep it at 1
                     corr_chance = 1
-    while True:
-        if settings.CORRUPTION_MODE:
-            with open(Data.CORRUPTION_LEVEL, "r") as f:
-                current_level = int(f.read())
-            if tracked_level != current_level:
-                corrupted_list = []
-                corrupted_list = update_corruption()
-                update_media(corrupted_list)
-                wallpaper_check(Resource.WALLPAPER)
-                tracked_level = current_level
-        roll_for_initiative(corr_chance)
-        if not MITOSIS_LIVE and (settings.MITOSIS_MODE or settings.LOWKEY_MODE) and HAS_IMAGES:
-            subprocess.Popen([sys.executable, Process.POPUP]) if settings.MOOD_OFF else subprocess.Popen([sys.executable, Process.POPUP, f"-{MOOD_ID}"])
-            MITOSIS_LIVE = True
-        if settings.FILL_MODE and LIVE_FILL_THREADS < settings.MAX_FILL_THREADS:
-            thread.Thread(target=fill_drive).start()
-        if settings.REPLACE_MODE and not REPLACING_LIVE:
-            thread.Thread(target=replace_images).start()
-        break
+
+    if settings.CORRUPTION_MODE:
+        with open(Data.CORRUPTION_LEVEL, "r") as f:
+            current_level = int(f.read())
+        if tracked_level != current_level:
+            corrupted_list = []
+            corrupted_list = update_corruption()
+            update_media(corrupted_list)
+            wallpaper_check(Resource.WALLPAPER)
+            tracked_level = current_level
+    roll_for_initiative(corr_chance)
+    if not MITOSIS_LIVE and (settings.MITOSIS_MODE or settings.LOWKEY_MODE) and HAS_IMAGES:
+        subprocess.Popen([sys.executable, Process.POPUP]) if settings.MOOD_OFF else subprocess.Popen([sys.executable, Process.POPUP, f"-{MOOD_ID}"])
+        MITOSIS_LIVE = True
+    if settings.FILL_MODE and LIVE_FILL_THREADS < settings.MAX_FILL_THREADS:
+        thread.Thread(target=fill_drive).start()
+    if settings.REPLACE_MODE and not REPLACING_LIVE:
+        thread.Thread(target=replace_images).start()
+
     root.after(settings.DELAY, annoyance)
 
 
