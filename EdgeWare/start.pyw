@@ -12,10 +12,10 @@ import traceback
 import webbrowser
 import zipfile
 from pathlib import Path
-from tkinter import messagebox
+from tkinter import messagebox, Tk
 
 import playsound as ps
-from subprocesses.startup_flair import make_startup_flair
+from features.startup_flair import make_startup_flair
 from utils import utils
 from utils.booru import BooruDownloader, download_web_resources
 from utils.fill import LIVE_FILL_THREADS, fill_drive, replace_images
@@ -27,10 +27,6 @@ PATH = Path(__file__).parent
 os.chdir(PATH)
 
 utils.init_logging("ew_start", "start")
-
-SYS_ARGS = sys.argv.copy()
-SYS_ARGS.pop(0)
-logging.info(f"args: {SYS_ARGS}")
 
 # load settings, if first run open options, then reload options from file
 settings = Settings()
@@ -223,10 +219,6 @@ if settings.DESKTOP_ICONS:
         utils.make_shortcut("Config", Process.CONFIG, Defaults.CONFIG_ICON)
     if not utils.does_desktop_shortcut_exist("Panic"):
         utils.make_shortcut("Panic", Process.PANIC, Defaults.PANIC_ICON)
-
-if settings.LOADING_FLAIR and (__name__ == "__main__"):
-    logging.info("started loading flair")
-    make_startup_flair(settings)
 
 
 # checks if user is in corruption mode, then sets wallpaper accordingly
@@ -904,4 +896,12 @@ def corruption_percent():
 
 
 if __name__ == "__main__":
-    main()
+    root = Tk()
+
+    if settings.LOADING_FLAIR:
+        root.after(0, lambda: make_startup_flair(settings, main))
+    else:
+        root.after(0, main)
+
+    root.withdraw()
+    root.mainloop()
