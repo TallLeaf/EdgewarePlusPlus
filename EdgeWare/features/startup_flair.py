@@ -1,10 +1,6 @@
-import sys
 import threading as thread
 import time
-import tkinter as tk
-from itertools import cycle
-from pathlib import Path
-from tkinter import RAISED, Frame, Label, Toplevel, messagebox
+from tkinter import RAISED, Frame, Label, Toplevel
 
 from PIL import Image, ImageTk
 from utils.paths import Defaults, Resource
@@ -23,7 +19,7 @@ def animate(top, callback):
         alpha -= 2 * step
         time.sleep(step / 4)
 
-    top.quit()
+    top.destroy()
     callback()
 
 
@@ -36,10 +32,14 @@ def make_startup_flair(settings, callback):
 
     scalar = 0.6
     image_ = Image.open(Resource.SPLASH if Resource.SPLASH else Defaults.SPLASH)
-    image = ImageTk.PhotoImage(image_.resize((int(image_.width * scalar), int(image_.height * scalar)), resample=(Image.LANCZOS if settings.LANCZOS_MODE else Image.ANTIALIAS)))
+    image = ImageTk.PhotoImage(
+        image_.resize((int(image_.width * scalar), int(image_.height * scalar)), resample=(Image.LANCZOS if settings.LANCZOS_MODE else Image.ANTIALIAS))
+    )
 
     top.geometry(
-        "{}x{}+{}+{}".format(image.width(), image.height(), int((top.winfo_screenwidth() - image.width()) / 2), int((top.winfo_screenheight() - image.height()) / 2))
+        "{}x{}+{}+{}".format(
+            image.width(), image.height(), int((top.winfo_screenwidth() - image.width()) / 2), int((top.winfo_screenheight() - image.height()) / 2)
+        )
     )
     label = Label(top, image=image)
     label.image = image  # We need to keep a reference to the image, otherwise it will fail to display

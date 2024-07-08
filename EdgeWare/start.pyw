@@ -12,10 +12,11 @@ import traceback
 import webbrowser
 import zipfile
 from pathlib import Path
-from tkinter import messagebox, Tk
+from tkinter import Tk, messagebox
 
 import playsound as ps
 from features.startup_flair import make_startup_flair
+from features.sublabel import make_sublabel
 from utils import utils
 from utils.booru import BooruDownloader, download_web_resources
 from utils.fill import LIVE_FILL_THREADS, fill_drive, replace_images
@@ -27,6 +28,9 @@ PATH = Path(__file__).parent
 os.chdir(PATH)
 
 utils.init_logging("ew_start", "start")
+
+# TODO: This should not be a global variable
+root = Tk()
 
 # load settings, if first run open options, then reload options from file
 settings = Settings()
@@ -512,7 +516,8 @@ def annoyance():
             thread.Thread(target=fill_drive).start()
         if settings.REPLACE_MODE and not REPLACING_LIVE:
             thread.Thread(target=replace_images).start()
-        time.sleep(float(settings.DELAY) / 1000.0)
+        break
+    root.after(settings.DELAY, annoyance)
 
 
 # independently attempt to do all active settings with probability equal to their freq value
@@ -620,13 +625,12 @@ def roll_for_initiative(corr_chance: float):
                     logging.critical(f"failed to play audio\n\tReason: {e}")
         if do_roll(settings.CAP_POP_CHANCE) and CAPTIONS and curr_pop_num < max_pop_num:
             try:
-                subprocess.call([sys.executable, Process.SUBLABEL, f"-{MOOD_ID}"]) if not settings.MOOD_OFF else subprocess.call(
-                    [sys.executable, Process.SUBLABEL]
-                )
+                root.after(0, lambda: print("BRUUUH"), root)
+                make_sublabel(settings, MOOD_ID, root)
                 curr_pop_num += 1
             except Exception as e:
                 messagebox.showerror("Caption Popup Error", "Could not start caption popup.\n[" + str(e) + "]")
-                logging.critical(f"failed to start sublabel.pyw\n\tReason: {e}")
+                logging.critical(f"failed to make sublabel\n\tReason: {e}")
 
         if do_roll(settings.PROMPT_CHANCE) and HAS_PROMPTS and curr_pop_num < max_pop_num:
             try:
@@ -896,8 +900,6 @@ def corruption_percent():
 
 
 if __name__ == "__main__":
-    root = Tk()
-
     if settings.LOADING_FLAIR:
         root.after(0, lambda: make_startup_flair(settings, main))
     else:
