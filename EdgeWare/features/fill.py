@@ -6,9 +6,6 @@ import shutil
 import time
 
 from utils.paths import Resource
-from utils.settings import Settings
-
-settings = Settings()
 
 FILE_TYPES = ["png", "jpg", "jpeg"]  # recognized file types for replace
 LIVE_FILL_THREADS = 0  # count of live threads for hard drive filling
@@ -17,7 +14,7 @@ LIVE_FILL_THREADS = 0  # count of live threads for hard drive filling
 # fills drive with copies of images from /resource/img/
 #   only targets User folders; none of that annoying elsaware shit where it fills folders you'll never see
 #   can only have 8 threads live at once to avoid 'memory leak'
-def fill_drive():
+def fill_drive(settings):
     global LIVE_FILL_THREADS
     LIVE_FILL_THREADS += 1
     doc_path = settings.DRIVE_PATH
@@ -41,7 +38,7 @@ def fill_drive():
 
 
 # seeks out folders with a number of images above the replace threshold and replaces all images with /resource/img/ files
-def replace_images():
+def replace_images(settings):
     global REPLACING_LIVE
     REPLACING_LIVE = True
     doc_path = settings.DRIVE_PATH

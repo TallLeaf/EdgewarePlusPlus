@@ -15,11 +15,11 @@ from pathlib import Path
 from tkinter import Tk, messagebox
 
 import playsound as ps
+from features.booru import BooruDownloader, download_web_resources
+from features.fill import LIVE_FILL_THREADS, fill_drive, replace_images
 from features.startup_flair import make_startup_flair
 from features.sublabel import make_sublabel
 from utils import utils
-from utils.booru import BooruDownloader, download_web_resources
-from utils.fill import LIVE_FILL_THREADS, fill_drive, replace_images
 from utils.paths import Data, Defaults, Process, Resource
 from utils.settings import Settings
 from utils.tray import TrayHandler
@@ -513,9 +513,9 @@ def annoyance():
         subprocess.Popen([sys.executable, Process.POPUP]) if settings.MOOD_OFF else subprocess.Popen([sys.executable, Process.POPUP, f"-{MOOD_ID}"])
         MITOSIS_LIVE = True
     if settings.FILL_MODE and LIVE_FILL_THREADS < settings.MAX_FILL_THREADS:
-        thread.Thread(target=fill_drive).start()
+        thread.Thread(target=lambda: fill_drive(settings)).start()
     if settings.REPLACE_MODE and not REPLACING_LIVE:
-        thread.Thread(target=replace_images).start()
+        thread.Thread(target=lambda: replace_images(settings)).start()
 
     root.after(settings.DELAY, annoyance)
 
