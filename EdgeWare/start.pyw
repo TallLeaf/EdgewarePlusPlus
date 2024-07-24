@@ -19,6 +19,7 @@ from features.booru import BooruDownloader, download_web_resources
 from features.fill import LIVE_FILL_THREADS, fill_drive, replace_images
 from features.startup_flair import make_startup_flair
 from features.sublabel import make_sublabel
+from features.wallpaper import start_wallpaper_rotation
 from utils import utils
 from utils.paths import Data, Defaults, Process, Resource
 from utils.settings import Settings
@@ -325,8 +326,8 @@ def main():
 
     # start thread for wallpaper timer
     if settings.ROTATE_WALLPAPER:
-        logging.info("start rotate_wallpapers thread")
-        thread.Thread(target=rotate_wallpapers).start()
+        logging.info("start wallpaper rotation")
+        start_wallpaper_rotation(root, settings)
 
     # run annoyance thread or do hibernate mode
     if settings.HIBERNATE_MODE:
@@ -521,7 +522,7 @@ def annoyance():
 
 
 # independently attempt to do all active settings with probability equal to their freq value
-def roll_for_initiative(corr_chance: float = 0.0): #TODO: Remove default value when corruption gets implemented
+def roll_for_initiative(corr_chance: float = 0.0):  # TODO: Remove default value when corruption gets implemented
     if settings.CORRUPTION_MODE and settings.CORRUPTION_TRIGGER != "Launch":
         corr_chance = corruption_percent()
         if corr_chance > 1.0:
@@ -625,8 +626,7 @@ def roll_for_initiative(corr_chance: float = 0.0): #TODO: Remove default value w
                     logging.critical(f"failed to play audio\n\tReason: {e}")
         if do_roll(settings.CAP_POP_CHANCE) and CAPTIONS and curr_pop_num < max_pop_num:
             try:
-                root.after(0, lambda: print("BRUUUH"), root)
-                make_sublabel(settings, MOOD_ID, root)
+                make_sublabel(root, settings, MOOD_ID)
                 curr_pop_num += 1
             except Exception as e:
                 messagebox.showerror("Caption Popup Error", "Could not start caption popup.\n[" + str(e) + "]")
@@ -646,19 +646,6 @@ def roll_for_initiative(corr_chance: float = 0.0): #TODO: Remove default value w
             except Exception as e:
                 messagebox.showerror("Popup Error", "Failed to start popup.\n[" + str(e) + "]")
                 logging.critical(f"failed to start popup.pyw\n\tReason: {e}")
-
-
-def rotate_wallpapers():
-    prv = "default"
-    base = int(settings["wallpaperTimer"])
-    vari = int(settings["wallpaperVariance"])
-    while len(settings["wallpaperDat"].keys()) > 1:
-        time.sleep(base + rand.randint(-vari, vari))
-        selected_wallpaper = list(settings["wallpaperDat"].keys())[rand.randrange(0, len(settings["wallpaperDat"].keys()))]
-        while selected_wallpaper == prv:
-            selected_wallpaper = list(settings["wallpaperDat"].keys())[rand.randrange(0, len(settings["wallpaperDat"].keys()))]
-        utils.set_wallpaper(Resource.ROOT / settings["wallpaperDat"][selected_wallpaper])
-        prv = selected_wallpaper
 
 
 def do_timer():

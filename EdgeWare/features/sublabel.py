@@ -10,7 +10,7 @@ from utils import utils
 from utils.paths import Resource
 
 
-def make_sublabel(settings, mood_id, root):
+def make_sublabel(root, settings, mood_id):
     # Load subliminal messages from captions.json
     def load_subliminal_messages():
         try:
