@@ -1039,18 +1039,25 @@ def update_media():
                     mediaData.pop(mood)
 
             rawList = list(mediaData.values())
-            mergedList = []
-            moodVideo = []
+            mergedList = dict.fromkeys(mediaData.keys())
+            for key in mergedList.keys():
+                mergedList[key] = []
+            moodVideo = dict.fromkeys(mediaData.keys())
+            for key in moodVideo.keys():
+                moodVideo[key] = []
             for sub in rawList:
                 for i in sub:
                     if i in os.listdir(Resource.AUDIO):
                         MOOD_AUDIO.append(Resource.AUDIO / i)
                         #logging.info(f'{i}')
                     elif i in os.listdir(Resource.VIDEO):
-                        moodVideo.append(i)
+                        for key in mediaData.keys():
+                            if i in mediaData[key]:
+                                moodVideo[key] += [i]
                     else:
-                        mergedList.append(i)
-
+                        for key in mediaData.keys():
+                            if i in mediaData[key]:
+                                mergedList[key] += [i]
             with open(Data.MEDIA_IMAGES, 'w') as f:
                 f.write(json.dumps(mergedList))
             with open(Data.MEDIA_VIDEO, 'w') as f:

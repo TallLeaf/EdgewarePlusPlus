@@ -29,6 +29,8 @@ except:
 SYS_ARGS = sys.argv.copy()
 SYS_ARGS.pop(0)
 
+NO_SKIP = True
+
 class prefix_data:
     def __init__(self, name, captions = None, images = None, max = 1, chance = 100.0):
         # The name of the prefix
@@ -379,38 +381,39 @@ def pick_resource(basepath, vidYes:bool):
         try:
             if vidYes:
                 with open(Data.MEDIA_VIDEO, 'r') as f:
-                    items = json.loads(f.read())
+                    itemsList = json.loads(f.read())
             else:
                 with open(Data.MEDIA_IMAGES, 'r') as f:
-                    items = json.loads(f.read())
+                    itemsList = json.loads(f.read())
         except Exception as e:
             print(f'failed to run mood check, reason:\n\t{e}')
-            items = os.listdir(basepath)
+            itemsList = os.listdir(basepath)
     else:
-        items = os.listdir(basepath)
-
-    if not items:
+        itemsList = os.listdir(basepath)
+    if not itemsList:
         return "", "", 0
 
     while True:
-        item = rand.choice(items)
-        while item.split('.')[-1].lower() == 'ini':
-            item = rand.choice(items)
+        #item = rand.choice(items)
+        
+        #while item.split('.')[-1].lower() == 'ini':
+        #    item = rand.choice(items)
 
-        matched = 'none'
+        #matched = 'none'
         if MOOD_FILENAME:
-            for prefix_name in prefixes:
-                    if item.startswith(prefixes[prefix_name].images):
-                        matched = 'partial'
-                        if do_roll(prefixes[prefix_name].chance):
-                            matched = 'matched'
-                            break
-            if matched == 'none':
-                prefix_name = 'default'
+            continue
+        #    for prefix_name in prefixes:
+        #            if item.startswith(prefixes[prefix_name].images):
+        #                matched = 'partial'
+        #                if do_roll(prefixes[prefix_name].chance):
+        #                    matched = 'matched'
+        #                    break
+        #    if matched == 'none':
+        #        prefix_name = 'default'
 
             # In the case where there was a match to a prefix, but didn't win the roll, we want to try again
-            elif matched == 'partial':
-                continue
+        #    elif matched == 'partial':
+        #        continue
         #if the mood filename setting is off, roll for a random mood based on chance
         else:
             if MOOD_ID != '0':
@@ -424,8 +427,12 @@ def pick_resource(basepath, vidYes:bool):
                     prefix_name = rand.choice(list(prefixes))
                     if do_roll(prefixes[prefix_name].chance):
                         break
+            
         prefix = prefixes[prefix_name]
-
+        items = itemsList[prefix_name]
+        item = rand.choice(items)
+        while item.split('.')[-1].lower() == 'ini':
+            item = rand.choice(items)
         caption = ""
         max = 1
 
@@ -510,11 +517,13 @@ def run():
     #many thanks to @MercyNudes for fixing my old braindead scaling method (https://twitter.com/MercyNudes)
     def resize(img:Image.Image) -> Image.Image:
         size_source = max(img.width, img.height) / min(monitor.width, monitor.height)
-        size_target = rand.randint(30, 70) / 100 if not (LOWKEY_MODE or video_mode) else rand.randint(20, 50) / 100
-        resize_factor = size_target / size_source
+        size_target = rand.randint(30, 70) / 100 if (not LOWKEY_MODE or video_mode) else rand.randint(20, 50) / 100
         if video_mode == True: 
-            #resize_factor = max(resize_factor,40)
+            size_target = max(size_target, 40/100)
+            resize_factor = size_target / size_source
             resize_factor = resize_factor*1.45
+        else:
+            resize_factor = size_target / size_source
         if LANCZOS_MODE:
             return image.resize((int(image.width * resize_factor), int(image.height * resize_factor)), Image.LANCZOS)
         else:
@@ -670,6 +679,8 @@ def run():
 
     if BUTTONLESS:
         label.bind("<ButtonRelease-1>", buttonless_click)
+    elif video_mode and NO_SKIP:
+        pass
     else:
         root.button_string = StringVar()
         root.button_text = SUBMISSION_TEXT
@@ -684,7 +695,14 @@ def run():
             f.write(str(i+1))
             f.truncate()
     if video_mode:
-        root.attributes('-alpha', min(OPACITY+20,100) / 100)
+        alpha = OPACITY
+        if alpha >= 100:
+            alpha = 100
+        elif alpha >= 60:
+            root.attributes('-alpha', min(alpha+20,100) / 100)
+        else:
+            alpha = rand.randint(80,100)
+            root.attributes('-alpha', alpha / 100)
     else:
         root.attributes('-alpha', OPACITY / 100)
 
