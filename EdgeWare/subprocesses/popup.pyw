@@ -15,6 +15,7 @@ from itertools import cycle
 from PIL import Image, ImageTk, ImageFilter
 from screeninfo import get_monitors
 from pathlib import Path
+import traceback
 
 sys.path.append(str(Path(__file__).parent.parent))
 from utils import utils
@@ -29,10 +30,13 @@ except:
 SYS_ARGS = sys.argv.copy()
 SYS_ARGS.pop(0)
 
+WINDOWS_UI_SCALE = 1.5
+
 NO_SKIP = True
+IMAGE_VISIBLE = True
 
 class prefix_data:
-    def __init__(self, name, captions = None, images = None, max = 1, chance = 100.0):
+    def __init__(self, name, captions = None, images = None, max = 1, chance = 100.0, weight = 1):
         # The name of the prefix
         self.name = name
 
@@ -54,7 +58,10 @@ class prefix_data:
         # Chance of this prefix being used (% out of 100, and it's a float to allow < 1% chance)
         self.chance = float(chance)
 
+        self.weight = float(weight)
+
 prefixes = {}
+cap_weights = []
 #End Imported Code
 
 
@@ -158,7 +165,8 @@ with open(Data.CONFIG, 'r') as cfg:
     CORRUPTION_DEVMODE = check_setting('corruptionDevMode')
 
 if MOVING_CHANCE >= rand.randint(1,100):
-    BUTTONLESS = True
+    if not NO_SKIP:
+        BUTTONLESS = True
     MOVING_STATUS = True
 
 #take out first arg and make it into the mood ID
@@ -212,7 +220,7 @@ try:
             SUBMISSION_TEXT = rand.choice(CAPTIONS['subtext'])
         except:
             print('will use default submission text')
-        prefixes['default'] = prefix_data('default', images='', max=1, chance=100.0)
+        prefixes['default'] = prefix_data('default', images='', max=1, chance=100.0, weight=1)
 
     # Everything in the 'prefix' block gets the default values
     for prefix in CAPTIONS.get('prefix', []):
@@ -225,28 +233,28 @@ try:
         images = base.get('images', prefix)
         max_popup = base.get('max', 1)
         chance = float(base.get('chance', 100.0))
-
+        weight = float(base.get('weight', 1))
         if prefix in prefixes:
             entry = prefixes[prefix]
             entry.caption = caption
             entry.chance = chance
+            entry.weight = weight
 
             if prefix != 'default':
                 entry.images = images
                 entry.max = max_popup
         else:
-            prefixes[prefix] = prefix_data(prefix, captions=caption, images=images, max=max_popup, chance=chance)
-
+            prefixes[prefix] = prefix_data(prefix, captions=caption, images=images, max=max_popup, chance=chance, weight=weight)
     # Default has to have a reasonable chance of popping up
     if prefixes['default'].chance <= 10:
         prefixes['default'].chance = 10
 except:
-    prefixes['default'] = prefix_data('default', images='', max=1, chance=100.0)
+    prefixes['default'] = prefix_data('default', images='', max=1, chance=100.0, weight=100)
     print('no captions.json')
 
 #gif label class
 class GifLabel(tk.Label):
-    def load(self, path:str, resized_width:int, resized_height:int, delay:int=75, back_image:Image.Image=None):
+    def load(self, path:str, resized_width:int, resized_height:int, delay:int=40, back_image:Image.Image=None):
         self.image = Image.open(path)
         self.configure(background='black')
         self.frames:list[ImageTk.PhotoImage] = []
@@ -363,11 +371,11 @@ def move_window(master, resized_height:int, resized_width:int, xlocation:int, yl
         x += dx
         y += dy
 
-        if x + width >= master.winfo_screenwidth():
+        if (x + width) >= master.winfo_screenwidth()*WINDOWS_UI_SCALE:
             dx = -abs(move_speedX)
         elif x <= 0:
             dx = abs(move_speedX)
-        if y + height >= master.winfo_screenheight():
+        if (y + height) >= master.winfo_screenheight()*WINDOWS_UI_SCALE:
             dy = -abs(move_speedY)
         elif y <= 0:
             dy = abs(move_speedY)
@@ -392,7 +400,6 @@ def pick_resource(basepath, vidYes:bool):
         itemsList = os.listdir(basepath)
     if not itemsList:
         return "", "", 0
-
     while True:
         #item = rand.choice(items)
         
@@ -400,6 +407,7 @@ def pick_resource(basepath, vidYes:bool):
         #    item = rand.choice(items)
 
         #matched = 'none'
+        repeated = False
         if MOOD_FILENAME:
             continue
         #    for prefix_name in prefixes:
@@ -417,20 +425,58 @@ def pick_resource(basepath, vidYes:bool):
         #if the mood filename setting is off, roll for a random mood based on chance
         else:
             if MOOD_ID != '0':
-                while True:
-                    prefix_name = rand.choice(list(prefixes))
-                    if prefix_name in moodData['captions']:
-                        if do_roll(prefixes[prefix_name].chance):
+                if len(SYS_ARGS) >= 3:
+                    for given in list(prefixes):
+                        if given in SYS_ARGS:
+                            prefix_name = given
+                            repeated = True
+                            break
+                else:
+                    for prefix in list(prefixes):
+                            cap_weights.append(prefixes[prefix].weight)
+                    while True:
+                        prefix_name = rand.choices(population=list(prefixes),weights=cap_weights,k=1)
+                        prefix_name = prefix_name[0]
+                        if prefix_name in moodData['captions']:
+                            #if do_roll(prefixes[prefix_name].chance):
                             break
             else:
                 while True:
                     prefix_name = rand.choice(list(prefixes))
                     if do_roll(prefixes[prefix_name].chance):
                         break
-            
+        global repeat_prefix
+        global no_skip
+        global isVideo
+        no_skip = False
+        repeat_prefix = prefix_name
         prefix = prefixes[prefix_name]
         items = itemsList[prefix_name]
-        item = rand.choice(items)
+        if len(items) > 0:
+            item = rand.choice(items)
+            if(isVideo):
+                if prefix_name == "treat": 
+                    no_skip = True
+                    if not ("Busted" in item[0:6]):
+                        item = rand.choice(items)
+                    with open(Data.TREAT_REROLL, 'w') as f:
+                            f.write('0')
+                elif repeated == False:
+                    treatChance = 0
+                    with open(Data.TREAT_REROLL, 'r') as f:
+                        treatChance = int(f.readline()) 
+                    treatRoll = rand.randint(0,1000)
+                    if(treatRoll < treatChance):
+                        prefix_name = "treat"
+                        prefix = prefixes[prefix_name]
+                        items = itemsList[prefix_name]
+                        item = rand.choice(items)
+                        with open(Data.TREAT_REROLL, 'w') as f:
+                            f.write('0')
+                    else:
+                        with open(Data.TREAT_REROLL, 'w') as f:
+                            f.write(str(treatChance+1))
+
         while item.split('.')[-1].lower() == 'ini':
             item = rand.choice(items)
         caption = ""
@@ -439,6 +485,9 @@ def pick_resource(basepath, vidYes:bool):
         if SHOW_CAPTIONS and CAPTIONS and prefix.captions:
             if prefix.captions in CAPTIONS:
                 caption = rand.choice(CAPTIONS[prefix.captions])
+                if prefix_name == "treat":
+                    if "Busted" in item[0:6]:
+                        caption = rand.choice(["Bad Luck, Puppy~","No Treat for You~","Good girls bust their balls for mommy~"])
                 if prefix.max > 1:
                     max = rand.randrange(2, prefix.max)
 
@@ -474,12 +523,21 @@ if THEME == 'Bimbo':
 
 def run():
     #var things
+    global isVideo
+    global button_move 
+    button_move = False
+    isVideo = False
     video_mode = False
+    global mitosis_mode
+    mitosis_mode = False
     resource_path = Resource.IMAGE
+    do_deny = check_deny()
+    if do_deny:
+        resource_path = Resource.CENSOR
     if len(SYS_ARGS) >= 1 and SYS_ARGS[0] == '-video':
         video_mode = True
+        isVideo = True
         resource_path = Resource.VIDEO
-
     item, caption_text, root.click_count = pick_resource(resource_path, video_mode)
 
     if not video_mode:
@@ -506,6 +564,8 @@ def run():
 
     border_wid_const = 5
     monitor = rand.choice(get_monitors())
+    while(monitor.is_primary == False):
+        monitor = rand.choice(get_monitors())
 
     #window start
     root.bind('<KeyPress>', lambda key: panic(key))
@@ -516,14 +576,26 @@ def run():
 
     #many thanks to @MercyNudes for fixing my old braindead scaling method (https://twitter.com/MercyNudes)
     def resize(img:Image.Image) -> Image.Image:
+        global mitosis_mode
         size_source = max(img.width, img.height) / min(monitor.width, monitor.height)
         size_target = rand.randint(30, 70) / 100 if (not LOWKEY_MODE or video_mode) else rand.randint(20, 50) / 100
         if video_mode == True: 
+            
             size_target = max(size_target, 40/100)
             resize_factor = size_target / size_source
             resize_factor = resize_factor*1.45
+            repeat_chance = rand.randint(1,100)
+            if repeat_chance >= 90:
+                mitosis_mode = True
+
+            
         else:
             resize_factor = size_target / size_source
+            sizechance = rand.randint(1,100)
+            if(sizechance >= 95):
+                resize_factor = resize_factor*2
+                mitosis_mode = True
+
         if LANCZOS_MODE:
             return image.resize((int(image.width * resize_factor), int(image.height * resize_factor)), Image.LANCZOS)
         else:
@@ -531,15 +603,14 @@ def run():
 
     resized_image = resize(image)
 
-    do_deny = check_deny()
     if SUBLIMINAL_MODE:
         check_subliminal()
 
-    if do_deny and not animated_gif:
-        blur_modes = [ImageFilter.GaussianBlur(5), ImageFilter.GaussianBlur(10), ImageFilter.GaussianBlur(20),
-                      ImageFilter.BoxBlur(5),      ImageFilter.BoxBlur(10),       ImageFilter.BoxBlur(20)]
-        rand.shuffle(blur_modes)
-        resized_image = resized_image.filter(blur_modes.pop())
+    #if do_deny and not animated_gif:
+        #blur_modes = [ImageFilter.GaussianBlur(5), ImageFilter.GaussianBlur(10), ImageFilter.GaussianBlur(20),
+        #              ImageFilter.BoxBlur(5),      ImageFilter.BoxBlur(10),       ImageFilter.BoxBlur(20)]
+        #rand.shuffle(blur_modes)
+        #resized_image = resized_image.filter(blur_modes.pop())
 
     photoimage_image = ImageTk.PhotoImage(resized_image)
     image.close()
@@ -626,7 +697,7 @@ def run():
     if LOWKEY_MODE:
         global LOWKEY_CORNER
         if LOWKEY_CORNER == 4:
-            LOWKEY_CORNER = rand.randrange(0, 3)
+            LOWKEY_CORNER = rand.randint(0, 3)
         if LOWKEY_CORNER == 0:
             locX = monitor.width - (resized_image.width)
             locY = monitor.y
@@ -675,12 +746,22 @@ def run():
         devmodeLabel1.place(x= 5, y= int(resized_image.height/2))
         devmodeLabel2.place(x= 5, y= int(resized_image.height/2) + devmodeLabel2.winfo_reqheight() + 2)
         devmodeLabel3.place(x= 5, y= int(resized_image.height/2) + devmodeLabel3.winfo_reqheight() + devmodeLabel2.winfo_reqheight() + 4)
-
-
-    if BUTTONLESS:
+    
+    moving_video_chance = 20
+    move_video = (moving_video_chance >= rand.randint(1,100))
+    button_move = move_video
+    global no_skip
+    if BUTTONLESS or button_move and not (no_skip or NO_SKIP):
         label.bind("<ButtonRelease-1>", buttonless_click)
-    elif video_mode and NO_SKIP:
+    elif video_mode and (NO_SKIP or no_skip):
         pass
+    elif (not video_mode and IMAGE_VISIBLE):
+        if not (NO_SKIP or no_skip):
+            label.bind("<ButtonRelease-1>", buttonless_click)
+        root.button_string = StringVar()
+        root.button_text = ""
+        root.button_string.set(root.button_text)
+        submit_button = Button(root, textvariable=root.button_string, command=click, bg=back, fg=fore, activebackground=back, activeforeground=fore)
     else:
         root.button_string = StringVar()
         root.button_text = SUBMISSION_TEXT
@@ -707,7 +788,12 @@ def run():
         root.attributes('-alpha', OPACITY / 100)
 
     if MOVING_STATUS:
-        move_window(root,resized_image.height,resized_image.width,locX,locY)
+        mitosis_mode = True
+        thread.Thread(target=lambda: move_window(root,resized_image.height,resized_image.width,locX,locY), daemon=True).start()
+    elif video_mode and move_video:
+        mitosis_mode = True
+        button_move = True
+        thread.Thread(target=lambda: move_window(root,resized_image.height,resized_image.width,locX,locY), daemon=True).start()
 
     root.mainloop()
 
@@ -739,7 +825,7 @@ def startVLC_no_loop(vid, label, duration):
     media_player.play()
     t = threading.Timer(duration, die) #kill after duration
     t.start()
-    stay_on_top();
+    stay_on_top()
 
 def stay_on_top():
     root.lift()
@@ -772,13 +858,27 @@ def live_life(parent:tk, length:int):
                 f.seek(0)
                 f.write(str(i-1))
                 f.truncate()
+    global isVideo
+    global mitosis_mode
     if len(SYS_ARGS) >= 1 and SYS_ARGS[0] == '-video':
+        isVideo = True
         with open(Data.MAX_VIDEOS, 'r+') as f:
             i = int(f.readline())
             if i > 0:
                 f.seek(0)
                 f.write(str(i-1))
                 f.truncate()
+    if mitosis_mode:
+        if isVideo:
+            VIDEO_NUMBER = 0
+            with open(Data.MAX_VIDEOS, 'r') as f:
+                    VIDEO_NUMBER = int(f.readline())
+            with open(Data.MAX_VIDEOS, 'w') as f:
+                            f.write(str(VIDEO_NUMBER+1))       
+        else:
+            mitosis_strength = rand.randint(1,5)
+            for i in (range(0, mitosis_strength)): #if not LOWKEY_MODE else [1]):
+                subprocess.Popen([sys.executable, Process.POPUP, f'-{MOOD_ID}'])
     if SUBLIMINAL_MODE:
         with open(Data.MAX_SUBLIMINALS, 'r+') as f:
             i = int(f.readline())
@@ -848,13 +948,29 @@ def die():
                 f.seek(0)
                 f.write(str(i-1))
                 f.truncate()
+    global isVideo
+    global mitosis_mode
     if len(SYS_ARGS) >= 1 and SYS_ARGS[0] == '-video':
+        isVideo = True
         with open(Data.MAX_VIDEOS, 'r+') as f:
             i = int(f.readline())
             if i > 0:
                 f.seek(0)
                 f.write(str(i-1))
                 f.truncate()
+    if mitosis_mode:
+        if isVideo:
+            VIDEO_NUMBER = 0
+            global repeat_prefix
+            with open(Data.MAX_VIDEOS, 'r') as f:
+                    VIDEO_NUMBER = int(f.readline())
+            with open(Data.MAX_VIDEOS, 'w') as f:
+                            f.write(str(VIDEO_NUMBER+1))  
+            subprocess.Popen([sys.executable, Process.POPUP, f'-{MOOD_ID}', '-video', '-vlc',repeat_prefix])
+        else:
+            mitosis_strength = rand.randint(1,5)
+            for i in (range(0, mitosis_strength)): #if not LOWKEY_MODE else [1]):
+                subprocess.Popen([sys.executable, Process.POPUP, f'-{MOOD_ID}'])
     if SUBLIMINAL_MODE:
         with open(Data.MAX_SUBLIMINALS, 'r+') as f:
             i = int(f.readline())
@@ -923,5 +1039,5 @@ if __name__ == '__main__':
         run()
     except Exception as e:
         utils.init_logging(logging, 'popup')
-        logging.fatal(f'failed to start popup\n{e}')
-        #traceback.print_exc() 
+        logging.fatal(f'failed to start popup\n{e}\n')
+        logging.fatal(traceback.format_exc())

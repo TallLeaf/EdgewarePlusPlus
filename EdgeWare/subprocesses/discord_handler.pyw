@@ -8,7 +8,7 @@ from utils.paths import Resource
 
 textObj = ['[No discord.dat resource]', 'default']
 
-IMGID_CONSTS = ['furcock_img', 'blacked_img', 'censored_img', 'goon_img', 'goon2_img', 'hypno_img', 'futa_img', 'healslut_img', 'gross_img']
+IMGID_CONSTS = ['furcock_img', 'blacked_img', 'censored_img', 'goon_img', 'goon2_img', 'hypno_img', 'futa_img', 'healslut_img', 'gross_img','booruimage4029']
 
 txt = ''
 
@@ -33,7 +33,9 @@ if not txt == '':
 
 #open discord api pipe and such
 def do_discord():
-    conn = presence.Presence('820204081410736148')
+    #original id
+    #conn = presence.Presence('820204081410736148')
+    conn = presence.Presence('1260105789297790997')
     conn.connect()
     conn.update(state=textObj[0], large_image=textObj[1], start=int(time.time()))
     while True:

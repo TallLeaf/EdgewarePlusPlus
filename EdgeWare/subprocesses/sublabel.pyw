@@ -30,6 +30,7 @@ CAP_TIMER = 300
 SUBLIMINAL_MOOD = True
 MOOD_OFF = True
 THEME = 'Original'
+PLAP_COUNT = 0
 
 MOOD_ID = '0'
 if len(SYS_ARGS) >= 1 and SYS_ARGS[0] != '0':
@@ -83,6 +84,8 @@ except Exception as e:
     back = '#000001' if utils.is_windows() else '#f0f0f0'
     mainfont = 'Segoe UI'
 
+
+
 def display_subliminal_message():
     # Load subliminal messages from captions.json
     def load_subliminal_messages():
@@ -111,11 +114,30 @@ def display_subliminal_message():
 
     # Get a random subliminal message
     def get_random_subliminal():
-        subliminal_messages = load_subliminal_messages()
-        if subliminal_messages:
-            return random.choice(subliminal_messages)
+        global PLAP_COUNT
+        if(len(SYS_ARGS) >= 3):
+            line = SYS_ARGS[1]
+            PLAP_COUNT = int(SYS_ARGS[2])
+            if(line == "PLAP"):
+                if(PLAP_COUNT > 1):
+                    return f'Plap for the next {PLAP_COUNT} videos, puppy~'
+                else:
+                    return 'Plap for the next video, puppy~'
+            elif(line == "PLAP2"):
+                if(PLAP_COUNT > 1):
+                    return f'{PLAP_COUNT} more videos, puppy~'
+                else:
+                    return f'{PLAP_COUNT} more video, puppy~'
+            else:
+                return 'Last video, puppy. Good girl~'
+
+
         else:
-            return "No subliminal messages found."
+            subliminal_messages = load_subliminal_messages()
+            if subliminal_messages:
+                return random.choice(subliminal_messages)
+            else:
+                return "No subliminal messages found."
 
     # Create the label
     label = tk.Label(fg=fore, bg=back)
@@ -154,10 +176,12 @@ def display_subliminal_message():
     label.update_idletasks()
 
     # Schedule the destruction of the window after 0.3 seconds
-    label.master.after(CAP_TIMER, label.master.destroy)
+    if(PLAP_COUNT == 0):
+        label.master.after(CAP_TIMER, label.master.destroy)
+    else:
+        label.master.after(3000, label.master.destroy)
 
     # Start the Tkinter event loop
-
     label.mainloop()
 
 # Call the function to display the subliminal message

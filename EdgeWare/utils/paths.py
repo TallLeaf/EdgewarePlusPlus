@@ -25,6 +25,7 @@ class Resource:
     # Directories
     AUDIO = ROOT / 'aud'
     IMAGE = ROOT / 'img'
+    CENSOR = ROOT / 'img_censored'
     SUBLIMINALS = ROOT / 'subliminals'
     VIDEO = ROOT / 'vid'
 
@@ -75,6 +76,8 @@ class Data:
     MAX_VIDEOS = ROOT / 'max_videos.dat'
     MEDIA_IMAGES = ROOT / 'media_images.dat'
     MEDIA_VIDEO = ROOT / 'media_video.dat'
+    SKIPPED_COUNTER = ROOT / 'skipped_counter.dat'
+    TREAT_REROLL = ROOT / 'treat_reroll.dat'
 
 @dataclass
 class Defaults:

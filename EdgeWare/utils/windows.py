@@ -11,6 +11,9 @@ user = ctypes.windll.user32
 def panic_script():
     os.startfile('panic.bat')
 
+def restart_script():
+    os.system('start.bat')
+
 def set_borderless(root):
     root.overrideredirect(1)
 

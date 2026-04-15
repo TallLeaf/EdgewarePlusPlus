@@ -17,6 +17,7 @@ import sys
 import requests
 import pystray
 import playsound as ps
+from datetime import datetime, timedelta
 from PIL import Image
 from bs4 import BeautifulSoup
 from dataclasses import dataclass
@@ -77,6 +78,9 @@ VIDEO_CAP = int(settings['maxVideoBool']) == 1
 VIDEO_MAX = int(settings['maxVideos'])
 AUDIO_NUMBER = 0
 VIDEO_NUMBER = 0
+BELL_COUNT = 0
+BELL_ADD = 0
+PLAP_VIDEOS = 0
 
 #mode vars
 SHOW_ON_DISCORD = int(settings['showDiscord']) == 1
@@ -304,6 +308,29 @@ if DESKTOP_ICONS:
             utils.make_shortcut('Panic', Process.PANIC, Defaults.PANIC_ICON)
 
 if LOADING_FLAIR and (__name__ == "__main__"):
+    num = 0
+    temp = 0
+    dt = 0
+    try:
+        with open(Data.SKIPPED_COUNTER, 'r') as f:
+            temp = int(f.readline())
+            dt = f.readline()
+    except:
+        temp = 0
+    dt = datetime.strptime(dt, '%m/%d/%y %H:%M:%S')
+    d = datetime.now() - dt
+    num = max(temp - d.days,0)
+    with open(Data.SKIPPED_COUNTER, 'w') as f:
+            f.write(str(num) + '\n')
+            f.write(dt.strftime('%m/%d/%y %H:%M:%S'))
+    BELL_COUNT = num
+    temp = 5
+    while(num >= temp and num > 0):
+        BELL_ADD = BELL_ADD + 1
+        num = num - temp
+        if temp > 1:
+            temp = temp - 1
+    logging.info(f'Minimum Bells: {BELL_ADD}')
     logging.info('started loading flair')
     if Resource.SPLASH:
         if LANCZOS_MODE:
@@ -335,10 +362,10 @@ class TrayHandler:
         self.root.title('Edgeware')
         self.timer_mode = settings['timerMode'] == 1
 
-        self.option_list = [pystray.MenuItem('Edgeware Menu', print), pystray.MenuItem('Panic', self.try_panic)]
+        self.option_list = [pystray.MenuItem('Edgeware Menu', print), pystray.MenuItem('Panic', self.try_panic), pystray.MenuItem('Wanna skip this one?~', self.try_skip)]
         if settings['toggleHibSkip']:
             self.option_list.append(pystray.MenuItem('Skip to Hibernate', self.hib_skip))
-
+            
         if os.path.isfile(Resource.ICON):
             self.tray_icon = pystray.Icon('Edgeware',
                                         Image.open(Resource.ICON),
@@ -394,6 +421,12 @@ class TrayHandler:
                 logging.warning('panic initiated from tray command')
                 self.tray_icon.stop()
                 subprocess.Popen([sys.executable, Process.PANIC])
+    def try_skip(self):
+        logging.info('attempting tray restart')
+        logging.warning('restart initiated from tray command')
+        self.tray_icon.stop()
+        subprocess.Popen([sys.executable, Process.PANIC, f'-{True}'])
+
 
     def move_to_tray(self):
         self.tray_icon.run(tray_setup)
@@ -404,6 +437,7 @@ def tray_setup(icon):
 
 #main function, probably can do more with this but oh well i'm an idiot so
 def main():
+
     logging.info('entered main function')
     #set up tray icon
     tray = TrayHandler()
@@ -471,7 +505,7 @@ def main():
             if HIBERNATE_TRUTH == 'Chaos':
                 try:
                     global HIBERNATE_TYPE
-                    HIBERNATE_TYPE = rand.choice(['Original', 'Spaced', 'Glitch', 'Ramp', 'Pump-Scare'])
+                    HIBERNATE_TYPE = rand.choice(['Original', 'Spaced', 'Glitch', 'Ramp'])
                     with open(Data.CHAOS_TYPE, 'w') as f:
                         f.write(HIBERNATE_TYPE)
                     print(f'hibernate type is chaos, and has switched to {HIBERNATE_TYPE}')
@@ -829,6 +863,29 @@ def roll_for_initiative():
                 with open(Data.MAX_VIDEOS, 'r') as f:
                     VIDEO_NUMBER = int(f.readline())
                 if VIDEO_NUMBER < VIDEO_MAX:
+                    global PLAP_VIDEOS
+                    global BELL_COUNT
+                    global BELL_ADD
+                    if(PLAP_VIDEOS == 0):
+                        milestoneNum = 5
+                        if(BELL_COUNT > 15):
+                            BELL_ADD = BELL_ADD + 1
+                        BELL_COUNT = BELL_COUNT + BELL_ADD
+                        while(BELL_COUNT >= milestoneNum):
+                            BELL_COUNT = BELL_COUNT - milestoneNum
+                            PLAP_VIDEOS = PLAP_VIDEOS + 1
+                            if(milestoneNum != 1):
+                                milestoneNum = milestoneNum - 1
+                        if(PLAP_VIDEOS > 0):
+                            thread.Thread(target=lambda: subprocess.call([sys.executable, Process.SUBLABEL, f'-{MOOD_ID}',"PLAP",str(PLAP_VIDEOS)]) if not MOOD_OFF else subprocess.call([sys.executable, Process.SUBLABEL])).start()
+                            PLAP_VIDEOS = PLAP_VIDEOS - 1
+                    elif(PLAP_VIDEOS > 1):
+                        thread.Thread(target=lambda: subprocess.call([sys.executable, Process.SUBLABEL, f'-{MOOD_ID}',"PLAP2",str(PLAP_VIDEOS)]) if not MOOD_OFF else subprocess.call([sys.executable, Process.SUBLABEL])).start()
+                        PLAP_VIDEOS = PLAP_VIDEOS - 1
+                    else:
+                        thread.Thread(target=lambda: subprocess.call([sys.executable, Process.SUBLABEL, f'-{MOOD_ID}',"PLAP3",str(PLAP_VIDEOS)]) if not MOOD_OFF else subprocess.call([sys.executable, Process.SUBLABEL])).start()
+                        PLAP_VIDEOS = PLAP_VIDEOS - 1
+                    BELL_COUNT = 0
                     try:
                         if VLC_MODE:
                             thread.Thread(target=lambda: subprocess.call([sys.executable, Process.POPUP, '-video', '-vlc'], shell=False)).start() if MOOD_OFF else thread.Thread(target=lambda: subprocess.call([sys.executable, Process.POPUP, f'-{MOOD_ID}', '-video', '-vlc'], shell=False)).start()
@@ -936,6 +993,8 @@ def audioHelper():
 def play_audio():
     global PLAYING_AUDIO
     global AUDIO_NUMBER
+    global BELL_COUNT
+    global PLAP_VIDEOS
     if not AUDIO:
         return
     logging.info('starting audio playback')
@@ -953,7 +1012,21 @@ def play_audio():
             p.terminate()
         else:
             if not MOOD_OFF and os.path.exists(Resource.MEDIA):
-                ps.playsound(str(MOOD_AUDIO[rand.randrange(len(MOOD_AUDIO))]))
+                audioChoice = str(MOOD_AUDIO[rand.randrange(len(MOOD_AUDIO))])
+                loopNum = 0
+                while(loopNum <= 0):
+                    loopNum = loopNum + 1
+                    if("bell1.wav" in audioChoice and PLAP_VIDEOS == 0):
+                        BELL_COUNT = BELL_COUNT + 1
+                        break
+                    else:
+                        audioChoice = str(MOOD_AUDIO[rand.randrange(len(MOOD_AUDIO))])
+                        if("bell1.wav" in audioChoice and PLAP_VIDEOS == 0):
+                            BELL_COUNT = BELL_COUNT + 1
+                logging.info(f'Bells: {BELL_COUNT}')
+                ps.playsound(audioChoice)
+                                
+
             else:
                 ps.playsound(str(AUDIO[rand.randrange(len(AUDIO))]))
     except Exception as e:

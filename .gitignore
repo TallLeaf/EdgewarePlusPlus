@@ -171,11 +171,4 @@ EdgeWare/logs/
 EdgeWare/resource/
 EdgeWare/moods/*
 EdgeWare/moods/*/*.json
-EdgeWare/presets/black gaming.cfg
-EdgeWare/presets/blacked gaming.cfg
-EdgeWare/presets/blackedcraft.cfg
-EdgeWare/presets/blackedgooning.cfg
-EdgeWare/presets/discreete blacked gaming.cfg
-EdgeWare/presets/lowkey blacked.cfg
-EdgeWare/presets/lowkey gaming.cfg
-EdgeWare/subprocesses/popupOriginal.pyw
+EdgeWare/error.txt
